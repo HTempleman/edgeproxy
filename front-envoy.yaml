@@ -1,0 +1,62 @@
+admin:
+  access_log_path: /tmp/admin_access.log
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }
+
+static_resources:
+  listeners:
+  - name: front-proxy
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 80 }
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          route_config:
+            virtual_hosts:
+            - name: gsn_api
+              domains: ["randopron.net"]
+              routes:
+              - match:
+                  prefix: "/gsndb"
+                route: { cluster: gsn_web }
+            - name: vsh_api
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/vhs_library"
+                route: {cluster: vhs_web}
+          http_filters:
+          - name: envoy.router
+            config: {}
+  clusters:
+  - name: gsn_web
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: ROUND_ROBIN
+    dns_refresh_rate: { seconds: 60 }
+    load_assignment:
+      cluster_name: gsn_web
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: gsn_web
+                port_value: 80
+  - name: vhs_web
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: ROUND_ROBIN
+    dns_refresh_rate: { seconds: 60 }
+    load_assignment:
+      cluster_name: another_service
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: vhs_web
+                port_value: 80
